@@ -8,4 +8,6 @@ This project was inspired by pytorch-lightning. I wanted to create my own versio
 ```bash
 uv pip install torch==<version> --index-url --index-url https://download.pytorch.org/whl/cu<version>
 ```
-4. Run `uv sync` to install remaining dependencies.
+4. Clone this repository with `git clone https://github.com/brendanwood29/pytorch_trainer.git`
+5. Add the project to the current environment with `uv add --editable ./pytorch_trainer`
+6. Run `uv sync` to install remaining dependencies.

@@ -1,0 +1,11 @@
+# Pytorch Trainer
+This project was inspired by pytorch-lightning. I wanted to create my own version so that I could avoid creating reused code and better understand the inner workings of the lightning training pipeline.
+
+# Installation
+1. Install `uv` according to the system requirements, linked [here](https://docs.astral.sh/uv/getting-started/installation/).
+2. Run `uv venv` to initalize a virtual environment.
+3. Install `pytorch` accoring to your system environment using the command:
+```bash
+uv pip install torch==<version> --index-url --index-url https://download.pytorch.org/whl/cu<version>
+```
+4. Run `uv sync` to install remaining dependencies.

@@ -1,6 +1,6 @@
 import torch
-from .abstracts import ModelGetter, LossGetter, OptimGetter, SchedulerGetter
-from .early_stopper import EarlyStopping
+from .defaults import EarlyStopping, LossGetter, SchedulerGetter, OptimGetter, ModelGetter
+from .config import Config
 from torch.utils.data import DataLoader
 from omegaconf.dictconfig import DictConfig
 from omegaconf.listconfig import ListConfig
@@ -10,26 +10,29 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 from omegaconf import OmegaConf
 from tqdm import tqdm
-from typing import Tuple
+from typing import Tuple, List
 
 
 class Trainer(ABC):
     
     def __init__(
         self, 
-        cfg: ListConfig | DictConfig,
+        cfg_path: str | Path,
         get_model: ModelGetter,
-        get_loss_fn: LossGetter,
-        get_optim: OptimGetter,
-        get_scheduler: SchedulerGetter
-        ):
+        get_optim: OptimGetter = OptimGetter(),
+        get_scheduler: SchedulerGetter = SchedulerGetter(),
+        get_loss_fn: LossGetter = LossGetter(),
+        ) -> None:
+        
+        cfg = self.validate_config(cfg_path)
+        
         self.model = get_model(
             cfg.model.name, 
             **cfg.model.kwargs 
         )
         self.optimizer = get_optim(
             cfg.optim.name, 
-            self.model.parameters(), 
+            model_params=self.model.parameters(), 
             lr=cfg.optim.lr,
             **cfg.optim.kwargs
         )
@@ -42,7 +45,7 @@ class Trainer(ABC):
             self.lr_history = []
             self.scheduler = get_scheduler(
                 cfg.scheduler.name, 
-                self.optimizer, 
+                optim=self.optimizer, 
                 **cfg.scheduler.kwargs
             )
         
@@ -61,20 +64,21 @@ class Trainer(ABC):
             summary(self.model)
         
         self.stopper = None
-        if cfg.callbacks.use_early_stopping:
-            self.stopper = EarlyStopping(cfg.callbacks.patience)
+        if cfg.early_stopping:
+            self.stopper = EarlyStopping(cfg.early_stopping.patience, cfg.early_stopping.threshold)
         
         self.cfg = cfg
-        self.loss_epoch = []
-        self.val_loss = []
-        self.step_loss = []
-        self.run_name = cfg.run_name
+        self.device: str = self.cfg.device
+        self.loss_epoch: List[float] = []
+        self.val_loss: List[float] = []
+        self.step_loss: List[float] = []
+        self.run_name: str = cfg.run_name
         self.work_dir = Path(cfg.work_dir).joinpath(self.run_name)
         self.work_dir.mkdir(parents=True, exist_ok=True)
-        self.step = 0
-        self.best_val_loss = torch.inf
-        self.top_saved_models = []
-        self.num_models_save = cfg.model.num_models_to_save
+        self.step: int = 0
+        self.best_val_loss: float = torch.inf
+        self.top_saved_models: List[Tuple[float, Path]] = []
+        self.num_models_save: int = cfg.model.num_models_to_save
         
         if cfg.device is not None:
             self.model.to(cfg.device)
@@ -86,7 +90,24 @@ class Trainer(ABC):
             self.work_dir.joinpath('config.yaml')
         )
     
-    def __call__(self, train_loader, val_loader):
+    
+    def validate_config(self, cfg_path: str | Path) -> DictConfig | ListConfig:
+        schema = OmegaConf.structured(Config)
+        user_cfg = OmegaConf.load(cfg_path)
+        cfg = OmegaConf.merge(schema, user_cfg)
+        OmegaConf.to_container(cfg, throw_on_missing=True)
+        
+        if cfg.scheduler is not None:
+            OmegaConf.to_container(cfg.scheduler, throw_on_missing=True)
+        if cfg.early_stopping is not None:
+            OmegaConf.to_container(cfg.early_stopping, throw_on_missing=True)
+        if cfg.grad_clip is not None:
+            OmegaConf.to_container(cfg.grad_clip, throw_on_missing=True)
+        
+        return cfg    
+    
+        
+    def __call__(self, train_loader: DataLoader, val_loader: DataLoader) -> None:
         
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -129,10 +150,10 @@ class Trainer(ABC):
         pass
     
     
-    def clip_grad_norm(self):
+    def clip_grad_norm(self) -> None:
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.cfg.grad_clip.max_norm)
     
-    def after_train_batch(self, loss):
+    def after_train_batch(self, loss: torch.Tensor) -> None:
         self.optimizer.zero_grad()
         loss.backward()
         if self.cfg.grad_clip is not None:
@@ -143,7 +164,7 @@ class Trainer(ABC):
             self.lr_history.append(self.scheduler.get_last_lr())
 
     
-    def train(self, train_loader: DataLoader):
+    def train(self, train_loader: DataLoader) -> None:
         loss_iters = 0
         samples_processed = 0
         self.model.train()
@@ -160,7 +181,7 @@ class Trainer(ABC):
         self.loss_epoch.append(loss_iters / samples_processed)
         
         
-    def val(self, val_loader: DataLoader):
+    def val(self, val_loader: DataLoader) -> bool:
         self.model.eval()
         loss_iters = 0
         samples_processed = 0
@@ -190,7 +211,7 @@ class Trainer(ABC):
         
         model_name = self.save_model()
         
-        self.top_saved_models.append([self.last_val_loss, model_name])
+        self.top_saved_models.append((self.last_val_loss, model_name))
         self.top_saved_models.sort(key=lambda x: x[0])
         if len(self.top_saved_models) > self.num_models_save:
             _, worst_path = self.top_saved_models.pop()
@@ -198,7 +219,7 @@ class Trainer(ABC):
                 worst_path.unlink()
             
 
-    def load_model(self, file: str | Path, weights_only: bool, strict: bool = True):
+    def load_model(self, file: str | Path, weights_only: bool, strict: bool = True) -> None:
         
         pt_file = torch.load(file)
         
@@ -210,7 +231,7 @@ class Trainer(ABC):
         if 'scheduler_state' in pt_file:
             self.scheduler.load_state_dict(pt_file['scheduler_state']) # type: ignore
             
-    def save_model(self, model_name: str = 'model.pt'):
+    def save_model(self, model_name: str = 'model.pt') -> Path:
         out_dir = self.work_dir.joinpath('models')
         out_dir.mkdir(parents=True, exist_ok=True)
         params = {
@@ -220,12 +241,12 @@ class Trainer(ABC):
         }
         if self.scheduler is not None:
             params['scheduler_state'] = self.scheduler.state_dict()
-        if model_name == 'model':
+        if model_name == 'model.pt':
             model_name = f'{self.run_name}-epoch-{self.current_epoch}_best_val_loss_{self.last_val_loss:.4f}.pt'
         model_path = out_dir.joinpath(model_name)
         torch.save(params, model_path)
         
-        return model_name
+        return model_path
 
     def edit_requires_grad(self, modules: list, requires_grad: bool, verbose: bool = True):
         params_changed = 0

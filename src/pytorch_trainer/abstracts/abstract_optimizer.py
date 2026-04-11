@@ -1,13 +1,12 @@
 import torch.nn as nn
-from torch.optim import Optimizer, AdamW
+from torch.optim import Optimizer
 from typing import Iterable, Tuple
 from abc import ABC, abstractmethod
 
 
-class OptimGetter(ABC):
+class AbstractOptimGetter(ABC):
     
     def __init__(self) -> None:
-        
         super().__init__()
     
     
@@ -31,19 +30,21 @@ class OptimGetter(ABC):
 
         Returns:
             Optimizer: Configured optimizer.
-        """
-        configured_optimizers = [
-            'adamw',
-        ]
-        
-        if optim_name not in configured_optimizers:
-            raise NotImplementedError(f'{optim_name} is not a configured scheduler, `optim_name` must be one of {configured_optimizers}')
-        
-        if optim_name == 'adamw':
+        ```python
+            configured_optimizers = [
+                'adamw',
+            ]
             
-            return AdamW(
-                params=model_params,
-                lr=lr,
-                **kwargs
-            )
+            if optim_name not in configured_optimizers:
+                raise NotImplementedError(f'{optim_name} is not a configured scheduler, `optim_name` must be one of {configured_optimizers}')
+            
+            if optim_name == 'adamw':
+                
+                return AdamW(
+                    params=model_params,
+                    lr=lr,
+                    **kwargs
+                )
+        ```
+        """
             

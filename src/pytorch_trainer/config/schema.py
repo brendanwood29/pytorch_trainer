@@ -6,13 +6,13 @@ from typing import Dict, Any, List, Optional
 @dataclass
 class EarlyStoppingConfig:
     patience: int = MISSING
-    threshold: float = 0.001
+    threshold: float = MISSING
 
 @dataclass
 class ModelInitConfig:
     weights: str = MISSING
-    strict: bool = True
-    weights_only: bool = False
+    strict: bool = MISSING
+    weights_only: bool = MISSING
 
 
 @dataclass
@@ -20,8 +20,8 @@ class ModelConfig:
     name: str = MISSING
     init: Optional[ModelInitConfig] = None
     num_models_to_save: int = MISSING
-    print_summary: bool = True
-    save_last: bool = True
+    print_summary: bool = MISSING
+    save_last: bool = MISSING
     freeze_modules: Optional[List[str]] = field(default_factory=list)
     unfreeze_modules: Optional[List[str]] = field(default_factory=list)
     kwargs: Optional[Dict[str, Any]] = field(default_factory=dict)
@@ -60,7 +60,7 @@ class Config:
     loss: LossConfig = MISSING
     model: ModelConfig = MISSING
     device: str = 'cuda'
-    batch_pbar: bool = False
+    batch_pbar: bool = MISSING
     scheduler: Optional[SchedulerConfig] = None
     grad_clip: Optional[GradClipConfig] = None
     early_stopping: Optional[EarlyStoppingConfig] = None

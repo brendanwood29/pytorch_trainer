@@ -91,10 +91,12 @@ class Trainer(ABC):
         )
     
     
-    def validate_config(self, cfg_path: str | Path) -> DictConfig | ListConfig:
+    def validate_config(self, cfg: str | Path | DictConfig | ListConfig) -> DictConfig | ListConfig:
         schema = OmegaConf.structured(Config)
-        user_cfg = OmegaConf.load(cfg_path)
-        cfg = OmegaConf.merge(schema, user_cfg)
+        OmegaConf.set_struct(schema, False)
+        if isinstance(cfg, str) or isinstance(cfg, Path):
+            cfg = OmegaConf.load(cfg)
+        cfg = OmegaConf.merge(schema, cfg)
         OmegaConf.to_container(cfg, throw_on_missing=True)
         
         if cfg.scheduler is not None:

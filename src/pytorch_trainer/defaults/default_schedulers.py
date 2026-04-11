@@ -23,6 +23,6 @@ class SchedulerGetter(AbstractGetter[Type[LRScheduler], LRScheduler]):
         
     def __call__(self, scheduler_name: str, *, optim: Optimizer, **kwargs) -> LRScheduler:
         
-        kwargs['optim'] = optim
+        kwargs['optimizer'] = optim
         return super().__call__(scheduler_name, **kwargs)
         

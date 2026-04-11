@@ -1,6 +1,7 @@
 import torch
 from .abstracts import AbstractModelGetter, AbstractLossGetter, AbstractOptimGetter, AbstractSchedulerGetter
 from .defaults import EarlyStopping, LossGetter, SchedulerGetter, OptimGetter
+from .config import Config
 from torch.utils.data import DataLoader
 from omegaconf.dictconfig import DictConfig
 from omegaconf.listconfig import ListConfig
@@ -17,12 +18,15 @@ class Trainer(ABC):
     
     def __init__(
         self, 
-        cfg: ListConfig | DictConfig,
+        cfg_path: str | Path,
         get_model: AbstractModelGetter,
         get_optim: AbstractOptimGetter = OptimGetter(),
         get_scheduler: AbstractSchedulerGetter = SchedulerGetter(),
         get_loss_fn: AbstractLossGetter = LossGetter(),
-        ):
+        ) -> None:
+        
+        cfg = self.validate_config(cfg_path)
+        
         self.model = get_model(
             cfg.model.name, 
             **cfg.model.kwargs 
@@ -60,11 +64,12 @@ class Trainer(ABC):
         if cfg.model.print_summary:
             summary(self.model)
         
-        self.stopper = None #TODO fix this to make it styled like the rest of the codebase
-        if cfg.callbacks.use_early_stopping:
-            self.stopper = EarlyStopping(cfg.callbacks.patience)
+        self.stopper = None
+        if cfg.early_stopping:
+            self.stopper = EarlyStopping(cfg.early_stopping.patience, cfg.early_stopping.threshold)
         
         self.cfg = cfg
+        self.device: str = self.cfg.device
         self.loss_epoch: List[float] = []
         self.val_loss: List[float] = []
         self.step_loss: List[float] = []
@@ -86,6 +91,23 @@ class Trainer(ABC):
             self.work_dir.joinpath('config.yaml')
         )
     
+    
+    def validate_config(self, cfg_path: str | Path) -> DictConfig | ListConfig:
+        schema = OmegaConf.structured(Config)
+        user_cfg = OmegaConf.load(cfg_path)
+        cfg = OmegaConf.merge(schema, user_cfg)
+        OmegaConf.to_container(cfg, throw_on_missing=True)
+        
+        if cfg.scheduler is not None:
+            OmegaConf.to_container(cfg.scheduler, throw_on_missing=True)
+        if cfg.early_stopping is not None:
+            OmegaConf.to_container(cfg.early_stopping, throw_on_missing=True)
+        if cfg.grad_clip is not None:
+            OmegaConf.to_container(cfg.grad_clip, throw_on_missing=True)
+        
+        return cfg    
+    
+        
     def __call__(self, train_loader: DataLoader, val_loader: DataLoader) -> None:
         
         self.train_loader = train_loader
@@ -220,7 +242,7 @@ class Trainer(ABC):
         }
         if self.scheduler is not None:
             params['scheduler_state'] = self.scheduler.state_dict()
-        if model_name == 'model':
+        if model_name == 'model.pt':
             model_name = f'{self.run_name}-epoch-{self.current_epoch}_best_val_loss_{self.last_val_loss:.4f}.pt'
         model_path = out_dir.joinpath(model_name)
         torch.save(params, model_path)

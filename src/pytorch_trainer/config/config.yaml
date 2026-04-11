@@ -1,0 +1,31 @@
+batch_pbar: True  
+num_epochs: 100
+run_name: testing
+work_dir: ./testing
+early_stopping:
+  patience: 5
+device: cuda
+grad_clip:
+  max_norm: 1.0
+loss:
+  name: mse_loss
+model:
+  name: test_model
+  num_models_to_save: 2
+  print_summary: True
+  save_last: False
+  init:
+    strict: True
+    weights: ./test.py
+    weights_only: True
+  kwargs:
+    in_feats: 10
+    out_feats: 10
+optim:
+  name: adam
+  lr: 0.001
+scheduler:
+  name: onecycle
+  kwargs:
+    max_lr: 5e-5
+    total_steps: 1000

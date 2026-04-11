@@ -44,13 +44,15 @@ class TestDataset(Dataset):
     
     
 if __name__ == '__main__':
+    
+    
     model_getter = ModelGetter(
         {
             'test_model': TestModel
         }
     )
     loader = DataLoader(TestDataset(), batch_size=5, shuffle=True)
-    trainer = TestTrainer('./tests/test_config.yaml', model_getter)
+    trainer = TestTrainer('./tests/config_test.yaml', model_getter)
     
     trainer(loader, loader)
     

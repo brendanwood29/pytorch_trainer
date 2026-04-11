@@ -1,32 +1,24 @@
 import torch.nn as nn
-from ..abstracts import AbstractLossGetter
-from typing import Dict, Type
+from ..abstracts import AbstractGetter
+from typing import Type, Dict
 
-class LossGetter(AbstractLossGetter):
+class LossGetter(AbstractGetter[Type[nn.Module], nn.Module]):
     
-    def __init__(self, loss_funcs: Dict[str, Type[nn.Module]] | None = None) -> None:
-        """Default loss getting object. Pass any loss functions through `loss_funcs` as a dictonary 
-        of strings mapping to uninstantiated loss functions. `MSELoss` and `BCELoss` are preconfigured.
+    def __init__(self, loss_fns: Dict[str, Type[nn.Module]] | None = None):
+        """Default loss getting object. Pass any loss functions through `loss_fns` as a dictonary 
+         of strings mapping to Type[nn.Module]. `MSELoss` and `BCELoss` are preconfigured.
 
-        Args:
-            loss_funcs (Dict[str, Type[nn.Module]] | None, optional): Dictonary mapping loss functions to their names. Defaults to None.
-        """
-        super().__init__()
-        
-        self.loss_func_registry: Dict[str, Type[nn.Module]] = {
-            'mse_loss': nn.MSELoss,
-            'bce_loss': nn.BCELoss
-        }
-        if loss_funcs is not None:
-            self.loss_func_registry.update(loss_funcs)
+         Args:
+             loss_fns (Dict[str, Type[nn.Module]] | None, optional): Dictonary mapping loss functions to their names. Defaults to None.
+         """
+        super().__init__(loss_fns)
+        self.registry.update(
+            {
+                'mse_loss': nn.MSELoss,
+                'bce_loss': nn.BCELoss 
+            }
+        )
         
     def __call__(self, loss_name: str, **kwargs) -> nn.Module:
-        
-        try:
-            return self.loss_func_registry[loss_name](**kwargs)
-        except KeyError:
-            raise NotImplementedError(f'{loss_name} is not a configured loss function. Must be one of {list(self.loss_func_registry.keys())}')
-    
-    @property
-    def configured_losses(self) -> list[str]:
-        return list(self.loss_func_registry.keys())
+        return super().__call__(loss_name, **kwargs)
+

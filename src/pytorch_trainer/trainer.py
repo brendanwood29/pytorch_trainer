@@ -1,6 +1,5 @@
 import torch
-from .abstracts import AbstractModelGetter, AbstractLossGetter, AbstractOptimGetter, AbstractSchedulerGetter
-from .defaults import EarlyStopping, LossGetter, SchedulerGetter, OptimGetter
+from .defaults import EarlyStopping, LossGetter, SchedulerGetter, OptimGetter, ModelGetter
 from .config import Config
 from torch.utils.data import DataLoader
 from omegaconf.dictconfig import DictConfig
@@ -19,10 +18,10 @@ class Trainer(ABC):
     def __init__(
         self, 
         cfg_path: str | Path,
-        get_model: AbstractModelGetter,
-        get_optim: AbstractOptimGetter = OptimGetter(),
-        get_scheduler: AbstractSchedulerGetter = SchedulerGetter(),
-        get_loss_fn: AbstractLossGetter = LossGetter(),
+        get_model: ModelGetter,
+        get_optim: OptimGetter = OptimGetter(),
+        get_scheduler: SchedulerGetter = SchedulerGetter(),
+        get_loss_fn: LossGetter = LossGetter(),
         ) -> None:
         
         cfg = self.validate_config(cfg_path)
@@ -33,7 +32,7 @@ class Trainer(ABC):
         )
         self.optimizer = get_optim(
             cfg.optim.name, 
-            self.model.parameters(), 
+            model_params=self.model.parameters(), 
             lr=cfg.optim.lr,
             **cfg.optim.kwargs
         )
@@ -46,7 +45,7 @@ class Trainer(ABC):
             self.lr_history = []
             self.scheduler = get_scheduler(
                 cfg.scheduler.name, 
-                self.optimizer, 
+                optim=self.optimizer, 
                 **cfg.scheduler.kwargs
             )
         

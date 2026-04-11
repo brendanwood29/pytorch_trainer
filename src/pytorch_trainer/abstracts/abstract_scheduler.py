@@ -1,14 +1,12 @@
-from torch.optim.lr_scheduler import LRScheduler, OneCycleLR
+from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
 from abc import ABC, abstractmethod
 
 
-class SchedulerGetter(ABC):
+class AbstractSchedulerGetter(ABC):
     
     def __init__(self) -> None:
-        
         super().__init__()
-    
     
     @abstractmethod
     def __call__(
@@ -28,19 +26,21 @@ class SchedulerGetter(ABC):
 
         Returns:
             LRScheduler: Configured scheduler.
+        ```python
+            configured_schedulers = [
+                    'cosine'
+            ]
+                
+            if scheduler_name not in configured_schedulers:
+                raise NotImplementedError(f'{scheduler_name} is not a configured scheduler, `scheduler_name` must be one of {configured_schedulers}')
+            
+            if scheduler_name == 'cosine':
+                
+                return OneCycleLR(
+                    optimizer=optim,
+                    **kwargs
+                )
+        ```
         """
-        configured_schedulers = [
-                'cosine'
-        ]
-            
-        if scheduler_name not in configured_schedulers:
-            raise NotImplementedError(f'{scheduler_name} is not a configured scheduler, `scheduler_name` must be one of {configured_schedulers}')
-        
-        if scheduler_name == 'cosine':
-            
-            return OneCycleLR(
-                optimizer=optim,
-                **kwargs
-            )
             
         

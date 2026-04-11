@@ -1,7 +1,7 @@
 from torch import nn
 from abc import ABC, abstractmethod
 
-class LossGetter(ABC):
+class AbstractLossGetter(ABC):
     
     def __init__(self) -> None:
         super().__init__()
@@ -9,6 +9,7 @@ class LossGetter(ABC):
     @abstractmethod
     def __call__(self, loss_name: str, **kwargs) -> nn.Module:
         """Overwrite to return the loss function. If you define your own, make it a subclass of nn.Module.
+        Note if your loss function returns None, things will break.
 
         Args:
             loss_name (str): Loss name.
@@ -19,18 +20,24 @@ class LossGetter(ABC):
 
         Returns:
             nn.Module: Callable loss function.
+            
+        Example Usage:
+        ```python
+            def __call__(self, loss_name: str, **kwargs):
+                configured_losses = [
+                    'mse_loss',
+                    'mse_fc_loss'
+                ]
+                
+                if loss_name not in configured_losses:
+                    raise NotImplementedError(f'{loss_name} is not a configured loss function, `name` must be one of {configured_losses}')
+                
+                if loss_name == 'mse_loss':
+                    return nn.MSELoss()
+        ```
         """
         
-        configured_losses = [
-            'mse_loss',
-            'mse_fc_loss'
-        ]
         
-        if loss_name not in configured_losses:
-            raise NotImplementedError(f'{loss_name} is not a configured loss function, `name` must be one of {configured_losses}')
-        
-        if loss_name == 'mse_loss':
-            return nn.MSELoss()
         
         
     

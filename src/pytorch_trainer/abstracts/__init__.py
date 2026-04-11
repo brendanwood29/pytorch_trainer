@@ -1,11 +1,11 @@
-from .abstract_loss import LossGetter
-from .abstract_model import ModelGetter
-from .abstract_optimizer import OptimGetter
-from .abstract_scheduler import SchedulerGetter
+from .abstract_loss import AbstractLossGetter
+from .abstract_model import AbstractModelGetter
+from .abstract_optimizer import AbstractOptimGetter
+from .abstract_scheduler import AbstractSchedulerGetter
 
 __all__ = [
-    "LossGetter",
-    "ModelGetter",
-    "OptimGetter",
-    "SchedulerGetter"    
+    "AbstractLossGetter",
+    "AbstractModelGetter",
+    "AbstractOptimGetter",
+    "AbstractSchedulerGetter"    
 ]

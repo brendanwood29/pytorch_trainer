@@ -27,8 +27,14 @@
 		}
   	},
 	
-	"postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/setup-bashrc.sh",
-	"runArgs": ["--gpus=all", "--memory=256G", "--memory-swap=8G", "--shm-size=256G"]
+	"postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/setup_bashrc.sh",
+	"runArgs": [
+		"--gpus=all", 
+		"--memory=256G", 
+		"--memory-swap=8G", 
+		"--shm-size=256G",
+		"--hostname", "pytorch_trainer"
+	]
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
 

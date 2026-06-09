@@ -266,7 +266,8 @@ class Trainer(ABC):
         for name, param in self.model.named_parameters():
             for keyword in modules:
                 if isinstance(keyword, list):
-                    # Check if all specify keywords are in param name, if keyword is list
+                    # Check if all specify keywords are in param name,
+                    # if keyword is list
                     if all([word in name for word in keyword]):
                         if verbose:
                             print(f"{action} {name}")

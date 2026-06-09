@@ -286,9 +286,9 @@ class Trainer(ABC):
         )
 
         plt.figure()
-        plt.plot(range(final_epochs + 1), self.loss_epoch, "r")
-        plt.plot(range(final_epochs + 1), self.val_loss)
-        plt.xlabel("Epoch")
+        plt.plot(torch.linspace(1, self.step, final_epochs + 1), self.loss_epoch, "r")
+        plt.plot(torch.linspace(1, self.step, final_epochs + 1), self.val_loss)
+        plt.xlabel("Steps")
         plt.ylabel(f"{self.cfg.loss.name}")
         plt.legend(["Train Loss", "Validation Loss"])
         plt.tight_layout()

@@ -127,7 +127,10 @@ class Trainer(ABC):
                     should_stop = self.val(self.val_loader)
                 if should_stop:
                     print(
-                        f"Stopped after {self.current_epoch} epochs due to early stopping."
+                        (
+                            f"Stopped after {self.current_epoch}"
+                            "epochs due to early stopping."
+                        )
                     )
                     break
         self.after_training()
@@ -242,7 +245,10 @@ class Trainer(ABC):
         if self.scheduler is not None:
             params["scheduler_state"] = self.scheduler.state_dict()
         if model_name == "model.pt":
-            model_name = f"{self.run_name}-epoch-{self.current_epoch}_best_val_loss_{self.last_val_loss:.4f}.pt"
+            model_name = (
+                f"{self.run_name}-epoch-{self.current_epoch}"
+                f"_best_val_loss_{self.last_val_loss:.4f}.pt"
+            )
         model_path = out_dir.joinpath(model_name)
         torch.save(params, model_path)
 
@@ -282,7 +288,10 @@ class Trainer(ABC):
         fig_dir.mkdir(parents=True, exist_ok=True)
 
         print(
-            f"\nModel finished training with best validation {self.cfg.loss.name}: {self.best_val_loss:.4f}"
+            (
+                "\nModel finished training with best validation"
+                f"{self.cfg.loss.name}: {self.best_val_loss:.4f}"
+            )
         )
 
         plt.figure()

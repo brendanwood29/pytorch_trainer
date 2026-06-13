@@ -4,10 +4,16 @@ from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import torch
+import torch.distributed as dist
+import torch.nn as nn
 from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 from omegaconf.listconfig import ListConfig
-from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataset import Dataset
+from torch.utils.data.distributed import DistributedSampler
 from torchinfo import summary
 from tqdm import tqdm
 
@@ -69,7 +75,8 @@ class Trainer(ABC):
             )
 
         self.cfg = cfg
-        self.device: str = self.cfg.device
+        self.device: str | torch.Device = self.cfg.device
+        self.use_ddp = False
         self.loss_epoch: List[float] = []
         self.val_loss: List[float] = []
         self.step_loss: List[float] = []
@@ -81,8 +88,17 @@ class Trainer(ABC):
         self.top_saved_models: List[Tuple[float, Path]] = []
         self.num_models_save: int = cfg.model.num_models_to_save
 
-        if cfg.device is not None:
+        if "cuda:" in cfg.device:
             self.model.to(cfg.device)
+        elif cfg.device == "all":
+            self.use_ddp = True
+            dist.init_process_group(backend="nccl")
+            torch.cuda.set_device(dist.get_rank())
+            self.rank = dist.get_rank()
+            self.world_size = dist.get_world_size()
+            self.device = torch.device(f"cuda:{self.rank}")
+            self.model.to(self.device)
+            self.model = DDP(self.model, device_ids=[self.rank])
         else:
             self.model.to("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -107,10 +123,14 @@ class Trainer(ABC):
 
         return cfg
 
-    def __call__(self, train_loader: DataLoader, val_loader: DataLoader) -> None:
+    def __call__(self, train_dataset: Dataset, val_dataset: Dataset) -> None:
 
-        self.train_loader = train_loader
-        self.val_loader = val_loader
+        self.train_loader = self.configure_dataloader(
+            train_dataset, self.cfg.batch_size, self.cfg.data.train.shuffle
+        )
+        self.val_loader = self.configure_dataloader(
+            val_dataset, self.cfg.batch_size, self.cfg.data.val.suffle
+        )
 
         with tqdm(range(self.cfg.num_epochs), leave=False) as pbar:
             for final_model_epochs in pbar:
@@ -133,8 +153,28 @@ class Trainer(ABC):
                         )
                     )
                     break
+        dist.destroy_process_group()
         self.after_training()
         self.training_summary(self.current_epoch, save_final=self.cfg.model.save_last)
+
+    def configure_dataloader(self, dataset: Dataset, batch_size: int, shuffle: bool):
+
+        if self.use_ddp:
+            sampler = DistributedSampler(
+                dataset=dataset,
+                num_replicas=self.world_size,
+                rank=self.rank,
+                shuffle=shuffle,
+                seed=self.cfg.seed,
+            )
+            loader = DataLoader(dataset=dataset, batch_size=batch_size, sampler=sampler)
+        else:
+            loader = DataLoader(
+                dataset=dataset,
+                batch_size=batch_size,
+            )
+
+        return loader
 
     @abstractmethod
     def model_forward(self, batch) -> Tuple[torch.Tensor, int]:
@@ -174,6 +214,7 @@ class Trainer(ABC):
         self.model.train()
         with tqdm(train_loader, disable=not self.cfg.batch_pbar) as pbar:
             for x in pbar:
+                x = [item.to(self.device) for item in x]
                 pbar.set_description("Training Loop: ")
                 loss, batch_size = self.model_forward(x)  # type: ignore
                 loss_iters += loss.item() * batch_size
@@ -191,6 +232,7 @@ class Trainer(ABC):
         with tqdm(val_loader, disable=not self.cfg.batch_pbar) as pbar:
             pbar.set_description("Validation Loop: ")
             for x in pbar:
+                x = [item.to(self.device) for item in x]
                 loss, batch_size = self.model_forward(x)  # type: ignore
                 loss_iters += loss.item() * batch_size
                 samples_processed += batch_size

@@ -129,7 +129,9 @@ class Trainer(ABC):
             val_dataset, self.cfg.batch_size, self.cfg.data.val.shuffle
         )
 
-        with tqdm(range(self.cfg.num_epochs), leave=False) as pbar:
+        with tqdm(
+            range(self.cfg.num_epochs), leave=False, disable=self.rank == 0
+        ) as pbar:
             for final_model_epochs in pbar:
                 self.current_epoch = final_model_epochs
                 self.train(self.train_loader)
@@ -140,19 +142,23 @@ class Trainer(ABC):
                     },
                     refresh=False,
                 )
-                with torch.no_grad():
-                    should_stop = self.val(self.val_loader)
-                if should_stop:
-                    print(
-                        (
-                            f"Stopped after {self.current_epoch}"
-                            "epochs due to early stopping."
+                if self.rank == 0:
+                    with torch.no_grad():
+                        should_stop = self.val(self.val_loader)
+                    if should_stop:
+                        print(
+                            (
+                                f"Stopped after {self.current_epoch}"
+                                "epochs due to early stopping."
+                            )
                         )
-                    )
-                    break
+                        break
+        if self.rank == 0:
+            self.after_training()
+            self.training_summary(
+                self.current_epoch, save_final=self.cfg.model.save_last
+            )
         dist.destroy_process_group()
-        self.after_training()
-        self.training_summary(self.current_epoch, save_final=self.cfg.model.save_last)
 
     def configure_dataloader(self, dataset: Dataset, batch_size: int, shuffle: bool):
 
@@ -209,7 +215,9 @@ class Trainer(ABC):
         loss_iters = 0
         samples_processed = 0
         self.model.train()
-        with tqdm(train_loader, disable=not self.cfg.batch_pbar) as pbar:
+        with tqdm(
+            train_loader, disable=(not self.cfg.batch_pbar and self.rank == 0)
+        ) as pbar:
             for x in pbar:
                 x = [item.to(self.device) for item in x]
                 pbar.set_description("Training Loop: ")
@@ -226,7 +234,9 @@ class Trainer(ABC):
         self.model.eval()
         loss_iters = 0
         samples_processed = 0
-        with tqdm(val_loader, disable=not self.cfg.batch_pbar) as pbar:
+        with tqdm(
+            val_loader, disable=(not self.cfg.batch_pbar and self.rank == 0)
+        ) as pbar:
             pbar.set_description("Validation Loop: ")
             for x in pbar:
                 x = [item.to(self.device) for item in x]
@@ -235,24 +245,29 @@ class Trainer(ABC):
                 samples_processed += batch_size
                 pbar.set_postfix({"val_loss_step": f"{loss.item():.4f}"})
         self.val_loss.append(loss_iters / samples_processed)
+        if self.rank == 0:
+            last_loss = self.last_val_loss
+            if self.use_ddp and isinstance(last_loss, torch.Tensor):
+                dist.all_reduce(last_loss, dist.ReduceOp.AVG)
+            if last_loss < self.best_val_loss:
+                self.best_val_loss = self.last_val_loss
+                self.save_after_val(last_loss)
 
-        if self.last_val_loss < self.best_val_loss:
-            self.best_val_loss = self.last_val_loss
-            self.save_after_val()
-
-        if self.stopper is not None:
-            return self.stopper(self.last_val_loss)
-        return False
+            if self.stopper is not None:
+                return self.stopper(self.last_val_loss)
+            return False
+        else:
+            return True  # Always return true if not on global rank 0
 
     @property
     def last_val_loss(self):
         return self.val_loss[-1] if self.val_loss else float(torch.inf)
 
-    def save_after_val(self):
+    def save_after_val(self, last_loss):
 
         model_name = self.save_model()
 
-        self.top_saved_models.append((self.last_val_loss, model_name))
+        self.top_saved_models.append((last_loss, model_name))
         self.top_saved_models.sort(key=lambda x: x[0])
         if len(self.top_saved_models) > self.num_models_save:
             _, worst_path = self.top_saved_models.pop()

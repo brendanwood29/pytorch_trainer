@@ -723,8 +723,8 @@ dev = [
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "omegaconf", specifier = ">=2.3.0" },
-    { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.8" },
-    { name = "torch", marker = "extra == 'cuda'", specifier = ">=2.8" },
+    { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.7" },
+    { name = "torch", marker = "extra == 'cuda'", specifier = ">=2.7" },
     { name = "torchinfo", specifier = ">=1.8.0" },
     { name = "tqdm", specifier = ">=4.67.3" },
 ]

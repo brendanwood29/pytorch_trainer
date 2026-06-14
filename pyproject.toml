@@ -32,8 +32,8 @@ members = [
 ]
 
 [project.optional-dependencies]
-cpu = ["torch>=2.8"]
-cuda = ["torch>=2.8"]  
+cpu = ["torch>=2.7"]
+cuda = ["torch>=2.7"]  
 
 [tool.ruff]
 line-length = 88

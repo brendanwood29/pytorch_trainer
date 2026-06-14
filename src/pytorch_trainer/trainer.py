@@ -126,7 +126,7 @@ class Trainer(ABC):
             train_dataset, self.cfg.batch_size, self.cfg.data.train.shuffle
         )
         self.val_loader = self.configure_dataloader(
-            val_dataset, self.cfg.batch_size, self.cfg.data.val.suffle
+            val_dataset, self.cfg.batch_size, self.cfg.data.val.shuffle
         )
 
         with tqdm(range(self.cfg.num_epochs), leave=False) as pbar:

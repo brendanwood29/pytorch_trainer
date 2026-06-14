@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from gc import disable
 from pathlib import Path
 from typing import List, Tuple
 
@@ -73,8 +72,9 @@ class Trainer(ABC):
             )
 
         self.cfg = cfg
+        self.current_mode: str = ""
         self.device: str | torch.device = self.cfg.device
-        self.use_ddp = False
+        self.use_ddp: bool = False
         self.loss_epoch: List[float] = []
         self.val_loss: List[float] = []
         self.step_loss: List[float] = []
@@ -86,7 +86,7 @@ class Trainer(ABC):
         self.top_saved_models: List[Tuple[float, Path]] = []
         self.num_models_save: int = cfg.model.num_models_to_save
 
-        if "cuda:" in cfg.device:
+        if "cuda:" in cfg.device:  # TODO find a better way to do this
             self.model.to(cfg.device)
             self.rank = 0
         elif cfg.device == "all":
@@ -100,6 +100,7 @@ class Trainer(ABC):
             self.model = DDP(self.model, device_ids=[self.rank])
         else:
             self.model.to("cuda" if torch.cuda.is_available() else "cpu")
+            self.rank = 0
 
         OmegaConf.save(self.cfg, self.work_dir.joinpath("config.yaml"))
 

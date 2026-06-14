@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from gc import disable
 from pathlib import Path
 from typing import List, Tuple
 
@@ -87,6 +88,7 @@ class Trainer(ABC):
 
         if "cuda:" in cfg.device:
             self.model.to(cfg.device)
+            self.rank = 0
         elif cfg.device == "all":
             self.use_ddp = True
             dist.init_process_group(backend="nccl")
@@ -215,9 +217,11 @@ class Trainer(ABC):
         loss_iters = 0
         samples_processed = 0
         self.model.train()
-        with tqdm(
-            train_loader, disable=(not self.cfg.batch_pbar and self.rank == 0)
-        ) as pbar:
+        if self.rank == 0:
+            disable_pbar = False if self.cfg.batch_pbar else True
+        else:
+            disable_pbar = True
+        with tqdm(train_loader, disable=disable_pbar) as pbar:
             for x in pbar:
                 x = [item.to(self.device) for item in x]
                 pbar.set_description("Training Loop: ")
@@ -234,9 +238,11 @@ class Trainer(ABC):
         self.model.eval()
         loss_iters = 0
         samples_processed = 0
-        with tqdm(
-            val_loader, disable=(not self.cfg.batch_pbar and self.rank == 0)
-        ) as pbar:
+        if self.rank == 0:
+            disable_pbar = False if self.cfg.batch_pbar else True
+        else:
+            disable_pbar = True
+        with tqdm(val_loader, disable=disable_pbar) as pbar:
             pbar.set_description("Validation Loop: ")
             for x in pbar:
                 x = [item.to(self.device) for item in x]

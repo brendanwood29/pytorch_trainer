@@ -72,7 +72,7 @@ class Trainer(ABC):
             )
 
         self.cfg = cfg
-        self.device: str | torch.Device = self.cfg.device
+        self.device: str | torch.device = self.cfg.device
         self.use_ddp = False
         self.loss_epoch: List[float] = []
         self.val_loss: List[float] = []

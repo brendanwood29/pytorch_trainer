@@ -26,10 +26,10 @@ dev = [
 [tool.uv.sources]
 pytorch-trainer = { workspace = true }
 
-[tool.uv.workspace]
-members = [
-    ".",
-]
+# [tool.uv.workspace]
+# members = [
+#     ".",
+# ]
 
 [project.optional-dependencies]
 cpu = ["torch>=2.7"]

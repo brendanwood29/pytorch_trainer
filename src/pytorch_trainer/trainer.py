@@ -91,7 +91,10 @@ class Trainer(ABC):
             self.rank = 0
         elif cfg.device == "all":
             self.use_ddp = True
-            dist.init_process_group(backend="nccl")
+            try:
+                dist.init_process_group(backend="nccl")
+            except ValueError:
+                pass
             torch.cuda.set_device(dist.get_rank())
             self.rank = dist.get_rank()
             self.world_size = dist.get_world_size()
@@ -133,7 +136,7 @@ class Trainer(ABC):
         )
 
         with tqdm(
-            range(self.cfg.num_epochs), leave=False, disable=self.rank == 0
+            range(self.cfg.num_epochs), leave=False, disable=self.rank != 0
         ) as pbar:
             for final_model_epochs in pbar:
                 self.current_epoch = final_model_epochs
@@ -161,7 +164,6 @@ class Trainer(ABC):
             self.training_summary(
                 self.current_epoch, save_final=self.cfg.model.save_last
             )
-        dist.destroy_process_group()
 
     def configure_dataloader(self, dataset: Dataset, batch_size: int, shuffle: bool):
 

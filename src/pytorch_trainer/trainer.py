@@ -184,6 +184,14 @@ class Trainer(ABC):
 
         return loader
 
+    @property
+    def trainer_rank(self):
+        return self.rank
+
+    @property
+    def trainer_device(self):
+        return self.device
+
     @abstractmethod
     def model_forward(self, batch) -> Tuple[torch.Tensor, int]:
         """Abstract method for a forward pass of a model

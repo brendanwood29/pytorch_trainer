@@ -8,6 +8,7 @@ import torch.distributed as dist
 from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 from omegaconf.listconfig import ListConfig
+from torch.cuda import is_initialized
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
@@ -91,16 +92,16 @@ class Trainer(ABC):
             self.rank = 0
         elif cfg.device == "all":
             self.use_ddp = True
-            try:
+            if not dist.is_initialized():
                 dist.init_process_group(backend="nccl")
-            except ValueError:
-                pass
             torch.cuda.set_device(dist.get_rank())
             self.rank = dist.get_rank()
             self.world_size = dist.get_world_size()
             self.device = torch.device(f"cuda:{self.rank}")
             self.model.to(self.device)
-            self.model = DDP(self.model, device_ids=[self.rank])
+            self.model = DDP(
+                self.model, device_ids=[self.rank], find_unused_parameters=True
+            )
         else:
             self.model.to("cuda" if torch.cuda.is_available() else "cpu")
             self.rank = 0
@@ -135,6 +136,7 @@ class Trainer(ABC):
             val_dataset, self.cfg.batch_size, self.cfg.data.val.shuffle
         )
 
+        stop_signal = torch.zeros(1).to(self.device)
         with tqdm(
             range(self.cfg.num_epochs), leave=False, disable=self.rank != 0
         ) as pbar:
@@ -148,17 +150,23 @@ class Trainer(ABC):
                     },
                     refresh=False,
                 )
+                with torch.no_grad():
+                    should_stop = self.val(self.val_loader)
+                if dist.is_initialized():
+                    dist.barrier()  # Wait for all GPUs before checking val
                 if self.rank == 0:
-                    with torch.no_grad():
-                        should_stop = self.val(self.val_loader)
                     if should_stop:
-                        print(
-                            (
-                                f"Stopped after {self.current_epoch}"
-                                "epochs due to early stopping."
-                            )
+                        stop_signal.fill_(1)
+                if dist.is_initialized():
+                    dist.broadcast(stop_signal, src=0)
+                if stop_signal.item() > 0:
+                    print(
+                        (
+                            f"Stopping on rank{self.rank} after {self.current_epoch}"
+                            "epochs due to early stopping."
                         )
-                        break
+                    )
+                    break
         if self.rank == 0:
             self.after_training()
             self.training_summary(
@@ -274,7 +282,7 @@ class Trainer(ABC):
                 return self.stopper(self.last_val_loss)
             return False
         else:
-            return True  # Always return true if not on global rank 0
+            return False  # Always return true if not on global rank 0
 
     @property
     def last_val_loss(self):

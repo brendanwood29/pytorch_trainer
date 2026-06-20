@@ -304,8 +304,14 @@ class Trainer(ABC):
     ) -> None:
 
         pt_file = torch.load(file)
-
-        self.model.load_state_dict(pt_file["model_state"], strict=strict)
+        weights = {}
+        for k, v in pt_file["model_state"].items():
+            if "module." in k:
+                weights[k.removeprefix("module.")] = v
+            else:
+                weights[k] = v
+        # self.model.load_state_dict(pt_file["model_state"], strict=strict)
+        self.model.load_state_dict(weights, strict=strict)
         if weights_only:
             return
         self.optimizer.load_state_dict(pt_file["optim_state"])

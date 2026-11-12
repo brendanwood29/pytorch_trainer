@@ -1,7 +1,7 @@
 [project]
 name = "pytorch-trainer"
 version = "0.1.0"
-description = "Add your description here"
+description = "Replaces boilerplate code for deep learning model training"
 readme = "README.md"
 authors = [
     { name = "brendanwood29", email = "brendanwwood22@gmail.com" }
@@ -17,8 +17,3 @@ dependencies = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-
-[project.optional-dependencies]
-cpu = ["torch>=2.8"]
-cuda = ["torch>=2.8"]  

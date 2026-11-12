@@ -31,9 +31,9 @@ pytorch-trainer = { workspace = true }
 #     ".",
 # ]
 
-[project.optional-dependencies]
-cpu = ["torch>=2.7"]
-cuda = ["torch>=2.7"]  
+# [project.optional-dependencies]
+# cpu = ["torch>=2.7"]
+# cuda = ["torch>=2.7"]  
 
 [tool.ruff]
 line-length = 88

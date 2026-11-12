@@ -100,7 +100,7 @@ class Trainer(ABC):
             self.device = torch.device(f"cuda:{self.rank}")
             self.model.to(self.device)
             self.model = DDP(
-                self.model, device_ids=[self.rank], find_unused_parameters=True
+                self.model, device_ids=[self.rank], find_unused_parameters=False
             )
         else:
             self.model.to("cuda" if torch.cuda.is_available() else "cpu")
@@ -236,6 +236,7 @@ class Trainer(ABC):
         loss_iters = 0
         samples_processed = 0
         self.model.train()
+        self.current_mode = "Train"
         if self.rank == 0:
             disable_pbar = False if self.cfg.batch_pbar else True
         else:
@@ -255,6 +256,7 @@ class Trainer(ABC):
 
     def val(self, val_loader: DataLoader) -> bool:
         self.model.eval()
+        self.current_mode = "Val"
         loss_iters = 0
         samples_processed = 0
         if self.rank == 0:
